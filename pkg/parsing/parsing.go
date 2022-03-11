@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Port    int
 	Servers []string
+	Default string
 }
 
 func ParseConfig(path string) Config {
