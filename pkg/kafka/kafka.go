@@ -14,7 +14,7 @@ const (
 
 // @message the message from the server
 // @ctx context provided
-func producer(ctx context.Context, message string) {
+func Producer(ctx context.Context, message string) {
 
 	// kafka writer
 	w := kafka.NewWriter(kafka.WriterConfig{

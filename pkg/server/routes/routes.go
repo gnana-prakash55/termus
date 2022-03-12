@@ -2,11 +2,13 @@ package routes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 
+	"github.com/gnanaprakash55/termus/pkg/kafka"
 	"github.com/gnanaprakash55/termus/pkg/server/utils"
 )
 
@@ -36,6 +38,11 @@ func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	proxyURL := utils.GetProxyURL(payload.ProxyCondition)
 
 	log.Printf("Proxy Condition %s, Redirecting to Proxy URL %s", payload.ProxyCondition, proxyURL)
+
+	// write message into kafka producer
+	ctx := context.Background()
+	message := "Proxy Condition " + payload.ProxyCondition + ", Redirecting to Proxy URL " + proxyURL
+	kafka.Producer(ctx, message)
 
 	utils.ServeReverseProxy(proxyURL, res, req)
 
