@@ -9,7 +9,7 @@ import (
 // topic and brokers
 const (
 	topic   = "termus"
-	brokers = "localhost:9092"
+	brokers = "20.228.158.236:9092"
 )
 
 // @message the message from the server
