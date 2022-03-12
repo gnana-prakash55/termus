@@ -10,8 +10,10 @@ import (
 	"github.com/gnanaprakash55/termus/pkg/server/routes"
 )
 
+//Configuration filename
 const filename string = "termus.toml"
 
+// To start Server
 func Start() {
 	var config parsing.Config
 	config = parsing.ParseConfig(filepath.Join("./config/", filename))
