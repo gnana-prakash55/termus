@@ -4,34 +4,52 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"path/filepath"
-	"strings"
 
 	"github.com/gnanaprakash55/termus/pkg/parsing"
+	"github.com/gnanaprakash55/termus/pkg/roundrobin"
 )
 
-const filename string = "termus.toml"
+var urls []*url.URL
 
-//Get Proxy URL by proxy condition
-func GetProxyURL(proxyConditionRAW string) string {
-	proxyCondition := strings.ToUpper(proxyConditionRAW)
+var rr roundrobin.RoundRobin = init_roundrobin()
 
-	config := parsing.ParseConfig(filepath.Join("./config/", filename))
+//initialize round robin algo
+func init_roundrobin() roundrobin.RoundRobin {
 
-	if proxyCondition == "A" {
-		return config.Servers[0]
+	var servers = parsing.GetServers()
+
+	for i := 0; i < len(servers); i++ {
+		url, _ := url.Parse(servers[i])
+		urls = append(urls, url)
 	}
 
-	if proxyCondition == "B" {
-		return config.Servers[1]
+	rr, err := roundrobin.New(urls)
+	if err != nil {
+		panic(err)
 	}
 
-	if proxyCondition == "C" {
-		return config.Servers[2]
+	return rr
+}
+
+//Health Check for servers
+func healthCheck(url string) bool {
+	resp, err := http.Get(url)
+	if err != nil {
+		return false
 	}
+	if resp.StatusCode == 200 {
+		return true
+	}
+	return false
+}
 
-	return config.Default
-
+//Get Proxy URL by doing Health Check
+func GetProxyURL() string {
+	var url string = rr.Next().String()
+	if !healthCheck(url) {
+		return GetProxyURL()
+	}
+	return url
 }
 
 //Serving as Reverse Proxy

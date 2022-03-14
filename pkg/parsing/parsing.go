@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"log"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -13,11 +14,31 @@ type Config struct {
 	Default string
 }
 
+const filename = "termus.toml"
+
 //To parse Configuration File
-func ParseConfig(path string) Config {
+func ParseConfig() Config {
 	var config Config
-	if _, err := toml.DecodeFile(path, &config); err != nil {
+	if _, err := toml.DecodeFile(filepath.Join("./config/", filename), &config); err != nil {
 		log.Fatal(err)
 	}
 	return config
+}
+
+//Get Port from Config File
+func GetPort() int {
+	var config Config
+	if _, err := toml.DecodeFile(filepath.Join("./config/", filename), &config); err != nil {
+		log.Fatal(err)
+	}
+	return config.Port
+}
+
+//Get Servers from Config File
+func GetServers() []string {
+	var config Config
+	if _, err := toml.DecodeFile(filepath.Join("./config/", filename), &config); err != nil {
+		log.Fatal(err)
+	}
+	return config.Servers
 }
