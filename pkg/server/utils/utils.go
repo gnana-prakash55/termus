@@ -1,9 +1,11 @@
 package utils
 
 import (
-	"net/http"
-	"net/http/httputil"
+	"log"
+	"net"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/gnanaprakash55/termus/pkg/parsing"
 	"github.com/gnanaprakash55/termus/pkg/roundrobin"
@@ -11,15 +13,17 @@ import (
 
 var urls []*url.URL
 
-var rr roundrobin.RoundRobin = init_roundrobin()
+var mu sync.Mutex
+
+var rr roundrobin.RoundRobin = Init_roundrobin()
 
 //initialize round robin algo
-func init_roundrobin() roundrobin.RoundRobin {
+func Init_roundrobin() roundrobin.RoundRobin {
 
 	var servers = parsing.GetServers()
 
 	for i := 0; i < len(servers); i++ {
-		url, _ := url.Parse(servers[i])
+		url, _ := url.Parse(servers[i].URL)
 		urls = append(urls, url)
 	}
 
@@ -31,41 +35,34 @@ func init_roundrobin() roundrobin.RoundRobin {
 	return rr
 }
 
-//Health Check for servers
-func healthCheck(url string) bool {
-	resp, err := http.Get(url)
+func isAlive(url *url.URL) bool {
+	conn, err := net.DialTimeout("tcp", url.Host, time.Minute)
 	if err != nil {
+		log.Printf("Unreachable to %v, error: ", url.Host)
 		return false
 	}
-	if resp.StatusCode == 200 {
-		return true
-	}
-	return false
+	defer conn.Close()
+	return true
 }
 
-//Get Proxy URL by doing Health Check
-func GetProxyURL() string {
-	var url string = rr.Next().String()
-	if !healthCheck(url) {
-		return GetProxyURL()
+func HealthCheck() {
+	t := time.NewTicker(time.Minute * 1)
+
+	for {
+		select {
+		case <-t.C:
+			length := len(*rr.GetServers())
+			backend := *rr.GetServers()
+			for i := 0; i < length; i++ {
+				pingURL := backend[i].URL
+				isAlive := isAlive(pingURL)
+				backend[i].SetDead(!isAlive)
+				msg := "ok"
+				if !isAlive {
+					msg = "dead"
+				}
+				log.Printf("%v checked %v by healthcheck", backend[i].URL, msg)
+			}
+		}
 	}
-	return url
-}
-
-//Serving as Reverse Proxy
-func ServeReverseProxy(target string, res http.ResponseWriter, req *http.Request) {
-	// parse the url
-	url, _ := url.Parse(target)
-
-	// create the reverse proxy
-	proxy := httputil.NewSingleHostReverseProxy(url)
-
-	// Update the headers to allow for SSL redirection
-	req.URL.Host = url.Host
-	req.URL.Scheme = url.Scheme
-	req.Header.Set("X-Forwarded-Host", req.Header.Get("Host"))
-	req.Host = url.Host
-
-	// Note that ServeHttp is non blocking and uses a go routine under the hood
-	proxy.ServeHTTP(res, req)
 }

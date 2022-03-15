@@ -1,18 +1,20 @@
 package routes
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"sync"
 
-	"github.com/gnanaprakash55/termus/pkg/kafka"
+	"github.com/gnanaprakash55/termus/pkg/roundrobin"
 	"github.com/gnanaprakash55/termus/pkg/server/utils"
 )
 
-//Request Payload
-type Payload struct {
-	ProxyCondition string `json:"proxy_condition"`
-}
+var mu sync.Mutex
+
+var rr roundrobin.RoundRobin = utils.Init_roundrobin()
 
 func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	log.Printf("%s: %s%s", req.Method, req.Host, req.URL.Path)
@@ -33,15 +35,37 @@ func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	// }
 
 	//Get Proxy URL to redirect
-	proxyURL := utils.GetProxyURL()
 
-	log.Printf("Redirecting to Proxy URL %s", proxyURL)
+	currentServer := rr.Next()
+
+	fmt.Println(currentServer)
+
+	if currentServer.GetIsDead() {
+
+	}
+
+	log.Printf("Redirecting to Proxy URL %s", currentServer.URL)
+
+	var url *url.URL = currentServer.URL
+
+	proxy := httputil.NewSingleHostReverseProxy(url)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Printf("%v is dead", url)
+		currentServer.SetDead(true)
+		HandleRequest(w, r)
+	}
+	// Update the headers to allow for SSL redirection
+	req.URL.Host = url.Host
+	req.URL.Scheme = url.Scheme
+	req.Header.Set("X-Forwarded-Host", req.Header.Get("Host"))
+	req.Host = url.Host
+
+	// Note that ServeHttp is non blocking and uses a go routine under the hood
+	proxy.ServeHTTP(res, req)
 
 	// write message into kafka producer
-	ctx := context.Background()
-	message := "Redirecting to Proxy URL " + proxyURL
-	kafka.Producer(ctx, message)
-
-	utils.ServeReverseProxy(proxyURL, res, req)
+	// ctx := context.Background()
+	// message := "Redirecting to Proxy URL " + proxyURL
+	// go kafka.Producer(ctx, message)
 
 }
