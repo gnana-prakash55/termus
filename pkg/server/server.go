@@ -17,9 +17,12 @@ func Start() {
 
 	go utils.HealthCheck()
 
-	http.HandleFunc("/", routes.HandleRequest)
+	server := &http.Server{
+		Addr:    ":" + strconv.Itoa(PORT),
+		Handler: http.HandlerFunc(routes.HandleRequest),
+	}
 
 	log.Printf("Starting Server at PORT %s", strconv.Itoa(PORT))
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(PORT), nil))
+	log.Fatal(server.ListenAndServe())
 
 }

@@ -18,29 +18,35 @@ var rr roundrobin.RoundRobin = utils.Init_roundrobin()
 
 func HandleRequest(res http.ResponseWriter, req *http.Request) {
 	log.Printf("%s: %s%s", req.Method, req.Host, req.URL.Path)
-	// var payload Payload
 
-	// body, err := ioutil.ReadAll(req.Body)
-	// if err != nil {
-	// 	log.Printf("Error reading body: %v", err)
-	// 	panic(err)
-	// }
+	if rr.CountServers() == 0 {
+		res.WriteHeader(200)
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(res, utils.Successful())
+		return
+	}
 
-	// req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	var counter int
+	backend := *rr.GetServers()
+	for i := 0; i < rr.CountServers(); i++ {
+		if !utils.IsAlive(backend[i].URL) {
+			counter++
+		}
+	}
 
-	// err = json.NewDecoder(ioutil.NopCloser(bytes.NewBuffer(body))).Decode(&payload)
-	// if err != nil {
-	// 	log.Printf("Error parsng body: %v", err)
-	// 	panic(err)
-	// }
+	if counter == len(*rr.GetServers()) {
+		res.WriteHeader(502)
+		res.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(res, utils.BadGateway())
+		return
+	}
 
-	//Get Proxy URL to redirect
-
+	mu.Lock()
 	currentServer := rr.Next()
 
-	fmt.Println(currentServer)
-
 	if currentServer.GetIsDead() {
+
+		currentServer = rr.Next()
 
 	}
 
@@ -48,6 +54,7 @@ func HandleRequest(res http.ResponseWriter, req *http.Request) {
 
 	var url *url.URL = currentServer.URL
 
+	mu.Unlock()
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		log.Printf("%v is dead", url)

@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/gnanaprakash55/termus/pkg/parsing"
@@ -12,10 +11,6 @@ import (
 )
 
 var urls []*url.URL
-
-var mu sync.Mutex
-
-var rr roundrobin.RoundRobin = Init_roundrobin()
 
 //initialize round robin algo
 func Init_roundrobin() roundrobin.RoundRobin {
@@ -35,10 +30,10 @@ func Init_roundrobin() roundrobin.RoundRobin {
 	return rr
 }
 
-func isAlive(url *url.URL) bool {
+func IsAlive(url *url.URL) bool {
 	conn, err := net.DialTimeout("tcp", url.Host, time.Minute)
 	if err != nil {
-		log.Printf("Unreachable to %v, error: ", url.Host)
+		log.Printf("Unreachable to %v, error: %v", url.Host, err.Error())
 		return false
 	}
 	defer conn.Close()
@@ -46,6 +41,8 @@ func isAlive(url *url.URL) bool {
 }
 
 func HealthCheck() {
+	var rr roundrobin.RoundRobin = Init_roundrobin()
+
 	t := time.NewTicker(time.Minute * 1)
 
 	for {
@@ -55,7 +52,7 @@ func HealthCheck() {
 			backend := *rr.GetServers()
 			for i := 0; i < length; i++ {
 				pingURL := backend[i].URL
-				isAlive := isAlive(pingURL)
+				isAlive := IsAlive(pingURL)
 				backend[i].SetDead(!isAlive)
 				msg := "ok"
 				if !isAlive {
@@ -65,4 +62,48 @@ func HealthCheck() {
 			}
 		}
 	}
+}
+
+func BadGateway() string {
+
+	return `
+	<html>
+	<head>
+	<style> 
+	h1 { text-align: center; }
+	h3 { text-align: center; }
+	</style>
+	</head>
+	<body>
+
+	<h1><strong>502 Bad Gateway</strong></h1>
+	<hr>
+	<h3>termus</h3>
+
+	</body>
+	<html>
+	`
+
+}
+
+func Successful() string {
+
+	return `
+	<html>
+	<head>
+	<style> 
+	h1 { text-align: center; }
+	h3 { text-align: center; }
+	</style>
+	</head>
+	<body>
+
+	<h1><strong>termus</strong></h1>
+	<hr>
+	<h3>Successfully Installed</h3>
+
+	</body>
+	<html>
+	`
+
 }

@@ -13,6 +13,7 @@ type RoundRobin interface {
 	Next() *Server
 	AddServers(server *url.URL)
 	GetServers() *[]Server
+	CountServers() int
 }
 
 type roundRobin struct {
@@ -28,13 +29,8 @@ type Server struct {
 
 //New instance of round robin
 func New(urls []*url.URL) (RoundRobin, error) {
-	if len(urls) == 0 {
-		return nil, ErrorServerExists
-	}
 
-	var rr RoundRobin
-
-	rr = &roundRobin{}
+	var rr RoundRobin = &roundRobin{}
 
 	for i := 0; i < len(urls); i++ {
 		rr.AddServers(urls[i])
@@ -57,6 +53,11 @@ func (r *roundRobin) AddServers(url *url.URL) {
 //Getting Servers
 func (r *roundRobin) GetServers() *[]Server {
 	return &r.servers
+}
+
+//Count Servers
+func (r *roundRobin) CountServers() int {
+	return len(r.servers)
 }
 
 //Set Dead updates the value of IsDead
